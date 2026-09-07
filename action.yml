@@ -1,0 +1,161 @@
+name: 'ContextDiet AI Context Optimizer'
+description: 'AST-guided repo context optimizer for AI coding agents. Slashes LLM tokens by 60-80% without losing reasoning.'
+author: 'Subakiz'
+branding:
+  icon: 'scissors'
+  color: 'green'
+
+inputs:
+  path:
+    description: 'Path to target repository or directory to pack'
+    required: false
+    default: '.'
+  focus:
+    description: 'One or more focus files to retain unabridged (space or comma separated)'
+    required: false
+    default: ''
+  output:
+    description: 'Output file path for the packed context'
+    required: false
+    default: 'context-diet.md'
+  format:
+    description: 'Output format: md, xml, or json'
+    required: false
+    default: 'md'
+  summary:
+    description: 'Generate rich GitHub Actions step summary table'
+    required: false
+    default: 'true'
+  no-diet:
+    description: 'Disable skeletonization and retain raw source for baseline testing'
+    required: false
+    default: 'false'
+  tsconfig:
+    description: 'Path to tsconfig.json for module alias resolution'
+    required: false
+    default: ''
+
+outputs:
+  output-file:
+    description: 'Path to the generated context file'
+    value: ${{ steps.run-contextdiet.outputs.output-file }}
+  original-tokens:
+    description: 'Total token count before optimization'
+    value: ${{ steps.run-contextdiet.outputs.original-tokens }}
+  packed-tokens:
+    description: 'Total token count after optimization'
+    value: ${{ steps.run-contextdiet.outputs.packed-tokens }}
+  tokens-saved:
+    description: 'Total number of tokens saved'
+    value: ${{ steps.run-contextdiet.outputs.tokens-saved }}
+  reduction-percentage:
+    description: 'Percentage reduction in token usage'
+    value: ${{ steps.run-contextdiet.outputs.reduction-percentage }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Action Dependencies
+      shell: bash
+      run: |
+        if [ ! -d "$GITHUB_ACTION_PATH/node_modules" ]; then
+          echo "Installing ContextDiet dependencies..."
+          cd "$GITHUB_ACTION_PATH" && npm ci --omit=dev || npm install --omit=dev
+        fi
+
+    - name: Execute ContextDiet Packing
+      id: run-contextdiet
+      shell: bash
+      run: |
+        TARGET_PATH="${{ inputs.path }}"
+        FOCUS_FILES="${{ inputs.focus }}"
+        OUT_PATH="${{ inputs.output }}"
+        FORMAT="${{ inputs.format }}"
+        SUMMARY="${{ inputs.summary }}"
+        NO_DIET="${{ inputs.no-diet }}"
+        TSCONFIG="${{ inputs.tsconfig }}"
+
+        # Resolve binary path
+        if [ -f "$GITHUB_ACTION_PATH/bin/contextdiet.js" ]; then
+          CLI="node $GITHUB_ACTION_PATH/bin/contextdiet.js"
+        elif [ -f "./bin/contextdiet.js" ]; then
+          CLI="node ./bin/contextdiet.js"
+        else
+          CLI="npx contextdiet"
+        fi
+
+        # Build Arguments
+        ARGS=("pack" "$TARGET_PATH" "--format" "$FORMAT" "-o" "$OUT_PATH")
+
+        if [ -n "$FOCUS_FILES" ]; then
+          ARGS+=("--focus" $FOCUS_FILES)
+        fi
+
+        if [ "$NO_DIET" = "true" ]; then
+          ARGS+=("--no-diet")
+        fi
+
+        if [ -n "$TSCONFIG" ]; then
+          ARGS+=("--tsconfig" "$TSCONFIG")
+        fi
+
+        # 1. Generate primary output file
+        echo "Running ContextDiet: $CLI ${ARGS[*]}"
+        $CLI "${ARGS[@]}"
+
+        # 2. Generate JSON audit to populate action outputs and summary
+        AUDIT_TMP="$(mktemp).json"
+        AUDIT_ARGS=("pack" "$TARGET_PATH" "--format" "json" "-o" "$AUDIT_TMP")
+        if [ -n "$FOCUS_FILES" ]; then
+          AUDIT_ARGS+=("--focus" $FOCUS_FILES)
+        fi
+        if [ "$NO_DIET" = "true" ]; then
+          AUDIT_ARGS+=("--no-diet")
+        fi
+        if [ -n "$TSCONFIG" ]; then
+          AUDIT_ARGS+=("--tsconfig" "$TSCONFIG")
+        fi
+
+        $CLI "${AUDIT_ARGS[@]}"
+
+        # 3. Parse JSON audit and expose outputs
+        node -e '
+          const fs = require("fs");
+          const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+          const m = data.metrics || {};
+          const out = process.env.GITHUB_OUTPUT;
+          if (out) {
+            fs.appendFileSync(out, `output-file=${process.argv[2]}\n`);
+            fs.appendFileSync(out, `original-tokens=${m.originalTokens || 0}\n`);
+            fs.appendFileSync(out, `packed-tokens=${m.packedTokens || 0}\n`);
+            fs.appendFileSync(out, `tokens-saved=${m.savedTokens || 0}\n`);
+            fs.appendFileSync(out, `reduction-percentage=${m.reductionPercentage || 0}\n`);
+          }
+
+          const stepSummary = process.env.GITHUB_STEP_SUMMARY;
+          if (stepSummary && process.argv[3] === "true") {
+            const lines = [];
+            lines.push("### 🥗 ContextDiet Token Audit");
+            lines.push("");
+            lines.push(`- **Target Path**: \`${process.argv[4]}\``);
+            lines.push(`- **Output File**: \`${process.argv[2]}\``);
+            lines.push(`- **Original Tokens**: **${(m.originalTokens || 0).toLocaleString()}**`);
+            lines.push(`- **Optimized Tokens**: **${(m.packedTokens || 0).toLocaleString()}**`);
+            lines.push(`- **Tokens Saved**: **${(m.savedTokens || 0).toLocaleString()}** (-${m.reductionPercentage || 0}%)`);
+            lines.push("");
+            lines.push("| File | Status | Original | Optimized | Saved | Reduction |");
+            lines.push("|---|---|---|---|---|---|");
+            for (const f of (data.files || [])) {
+              lines.push(`| \`${f.path}\` | \`${f.status}\` | ${f.originalTokens.toLocaleString()} | ${f.packedTokens.toLocaleString()} | ${f.savedTokens.toLocaleString()} | ${f.reductionPercentage}% |`);
+            }
+            lines.push("");
+            fs.appendFileSync(stepSummary, lines.join("\n") + "\n");
+          }
+        ' "$AUDIT_TMP" "$OUT_PATH" "$SUMMARY" "$TARGET_PATH"
+
+        rm -f "$AUDIT_TMP"

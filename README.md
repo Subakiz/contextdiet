@@ -5,6 +5,7 @@
 
 [![Tests](https://img.shields.io/badge/tests-370%20passed%20(100%25)-brightgreen?style=flat-square&logo=vitest&logoColor=white)](https://github.com/Subakiz/contextdiet)
 [![Token Reduction](https://img.shields.io/badge/token%20diet-54.4%25%20reduction-blue?style=flat-square)](https://github.com/Subakiz/contextdiet)
+[![Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-ContextDiet-brightgreen?style=flat-square&logo=github-actions&logoColor=white)](https://github.com/marketplace/actions/contextdiet-ai-context-optimizer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-informational?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 
@@ -115,6 +116,46 @@ Retain raw source code without skeletonization for comparison:
 ```bash
 contextdiet pack . --no-diet --summary
 ```
+
+---
+
+## GitHub Action (CI/CD & Marketplace)
+
+Automate repository context optimization and token auditing in your GitHub Actions workflows:
+
+```yaml
+name: Generate AI Agent Context
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  context-diet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Optimize Codebase Context
+        uses: Subakiz/contextdiet@v1
+        with:
+          path: '.'
+          focus: 'src/index.ts'
+          output: 'packed-context.md'
+          format: 'md'
+          summary: 'true'
+
+      - name: Upload Context Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-context
+          path: packed-context.md
+```
+
+Outputs available:
+* `${{ steps.contextdiet.outputs.tokens-saved }}`
+* `${{ steps.contextdiet.outputs.reduction-percentage }}`
+* `${{ steps.contextdiet.outputs.output-file }}`
 
 ---
 
