@@ -1,0 +1,7 @@
+{
+  "name": "@benchmark/js-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Benchmark JavaScript Background Event Worker",
+  "main": "src/worker.js"
+}

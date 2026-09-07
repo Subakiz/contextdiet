@@ -1,0 +1,7 @@
+{
+  "name": "@benchmark/ts-service",
+  "version": "1.0.0",
+  "description": "Benchmark TypeScript E-Commerce Microservice",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

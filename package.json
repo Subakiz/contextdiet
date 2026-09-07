@@ -1,0 +1,42 @@
+{
+  "name": "contextdiet",
+  "version": "0.1.0",
+  "description": "AST-guided repository context optimizer and CLI for AI coding agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "contextdiet": "./bin/contextdiet.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run test/unit",
+    "test:unit": "vitest run test/unit",
+    "test:e2e": "vitest run test/e2e",
+    "test:all": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "ast",
+    "context",
+    "optimizer",
+    "llm",
+    "ai-agents",
+    "skeletonizer",
+    "token-reduction"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@lezer/common": "^1.5.2",
+    "@lezer/go": "^1.0.1",
+    "@lezer/python": "^1.1.19",
+    "commander": "^12.1.0",
+    "js-tiktoken": "^1.0.19",
+    "typescript": "^5.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "vitest": "^2.0.5"
+  }
+}
