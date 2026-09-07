@@ -60,12 +60,14 @@ runs:
       with:
         node-version: '20'
 
-    - name: Install Action Dependencies
+    - name: Prepare ContextDiet Executable
       shell: bash
       run: |
-        if [ ! -d "$GITHUB_ACTION_PATH/node_modules" ]; then
-          echo "Installing ContextDiet dependencies..."
-          cd "$GITHUB_ACTION_PATH" && npm ci --omit=dev || npm install --omit=dev
+        cd "$GITHUB_ACTION_PATH"
+        if [ ! -d "node_modules" ] || [ ! -d "dist" ]; then
+          echo "Preparing ContextDiet Action executable..."
+          npm ci || npm install
+          npm run build
         fi
 
     - name: Execute ContextDiet Packing
